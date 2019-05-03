@@ -102,4 +102,3 @@ print-generated-assets:
 
 clean-assets:
 	rm -rf tmp/*
-

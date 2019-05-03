@@ -1,29 +1,76 @@
 assets:
   v1:
     - github:
-        repo: replicatedhq/replicated-starter-ship
+        repo: dexhorthy/replicated-starter-ship
         path: /base
         dest: ./
-        source: private
+        proxy: true
         # can be a commit SHA or branch reference, but master is best for quick iteration
         ref: master
     - github:
-        repo: replicatedhq/replicated-starter-ship
+        repo: dexhorthy/replicated-starter-ship
         path: /scripts
         dest: ./
-        source: private
         # can be a commit SHA or branch reference, but master is best for quick iteration
         ref: master
+        proxy: true
+
+    - inline:
+        dest: tf/empty.tf
+        contents: |
+          #an empty terraform file
+
+    - google_gke:
+        when: '{{repl and (ConfigOptionEquals "k8s_target_value" "k8s_target_provision_k8s") (ConfigOptionEquals "provision_k8s" "provision_k8s_gcp")}}'
+        dest: tf/gke.tf
+        credentials: '{{repl ConfigOption "gcp_account_json" | Base64Encode}}'
+        project: '{{repl ConfigOption "gcp_project" }}'
+        region: '{{repl ConfigOption "gcp_region" }}'
+        # change to your app name
+        cluster_name: '{{repl ConfigOption "gcp_cluster_name"}}'
+        zone: '{{repl ConfigOption "gcp_zone" }}'
+        initial_node_count: '{{repl ConfigOption "gcp_cluster_size" }}'
+        machine_type: '{{repl ConfigOption "gcp_machine_type" }}'
+
+    # NOTE when running this with `docker run`, the ~/.aws/ folder will need to be mounted into the container, and the `full` tag should be used instead of `latest`
+    - amazon_eks:
+        when: '{{repl and (ConfigOptionEquals "k8s_target_value" "k8s_target_provision_k8s") (ConfigOptionEquals "provision_k8s" "provision_k8s_aws")}}'
+        dest: tf/eks.tf
+        # change to your app name
+        cluster_name: "my-cool-app"
+        region: "us-west-2"
+        created_vpc:
+          vpc_cidr: "10.0.0.0/16"
+          zones:
+            - us-west-2a
+            - us-west-2b
+          public_subnets:
+            - "10.0.1.0/24"
+            - "10.0.2.0/24"
+          private_subnets:
+            - "10.0.129.0/24"
+            - "10.0.130.0/24"
+        autoscaling_groups:
+          - name: alpha
+            group_size: "3"
+            machine_type: t2.meduim
+
+    - azure_aks:
+        when: '{{repl and (ConfigOptionEquals "k8s_target_value" "k8s_target_provision_k8s") (ConfigOptionEquals "provision_k8s" "provision_k8s_azure")}}'
+        tenant_id: '{{repl ConfigOption "azure_tenant_id" }}'
+        subscription_id: '{{repl ConfigOption "azure_subscription_id" }}'
+        service_principal_id: '{{repl ConfigOption "azure_service_principal_id" }}'
+        service_principal_secret: '{{repl ConfigOption "azure_service_principal_secret" }}'
+        resource_group_name: '{{repl ConfigOption "azure_resource_group_name" }}'
+        location: '{{repl ConfigOption "azure_location" }}'
+        # change to your app name
+        cluster_name: "my-cool-app"
+        kubernetes_version: "1.11.2"
+        node_count: "1"
+        node_type: "Standard_D1_v2"
+
 config:
   v1:
-    - name: nginx
-      title: nginx settings
-      items:
-      - name: nginx_memory
-        title: Nginx Memory
-        type: text
-        default: 100Mi
-
     - name: kubernetes
       title: Kubernetes
       items:
@@ -32,6 +79,114 @@ config:
         type: text
         # change to your app name
         default: "default"
+
+    - name: k8s_target
+      title: Kubernetes Deployment Target
+      description: Select the Kubernetes deployment option you prefer
+      items:
+        - name: k8s_target_value
+          type: select_one
+          default: "k8s_target_existing"
+          items:
+            - name: k8s_target_existing
+              title: Existing Cluster
+              value: k8s_target_existing
+            - name: k8s_target_provision_k8s
+              title: Provision a cluster in my cloud provider
+              value: k8s_target_provision_k8s
+
+        - name: provision_k8s
+          type: select_one
+          when: '{{repl ConfigOptionEquals "k8s_target_value" "k8s_target_provision_k8s"}}'
+          default: "provision_k8s_aws"
+          items:
+            - name: provision_k8s_aws
+              title: AWS EKS
+            - name: provision_k8s_azure
+              title: Azure AKS
+            - name: provision_k8s_gcp
+              title: GCP GKE
+
+    - name: k8s_target_aws
+      title: AWS Settings
+      description: AWS Settings
+      when: '{{repl and (ConfigOptionEquals "k8s_target_value" "k8s_target_provision_k8s") (ConfigOptionEquals "provision_k8s" "provision_k8s_aws")}}'
+      items:
+        - name: aws_access_key_id
+          title: AWS Access Key ID
+          type: text
+          value: "please configure this in ~/.aws"
+          readonly: true
+        - name: aws_access_secret_access_key
+          title: AWS Secret access key
+          type: text
+          value: "please configure this in ~/.aws"
+          readonly: true
+    - name: k8s_target_azure
+      title: Azure Settings
+      description: Azure Settings
+      when: '{{repl and (ConfigOptionEquals "k8s_target_value" "k8s_target_provision_k8s") (ConfigOptionEquals "provision_k8s" "provision_k8s_azure")}}'
+      items:
+        - name: azure_tenant_id
+          title: Tenant ID
+          type: text
+        - name: azure_subscription_id
+          title: Subscription ID
+          type: text
+        - name: azure_service_principal_id
+          title: Service Principal ID
+          type: text
+        - name: azure_service_principal_secret
+          title: Service Principal Secret
+          type: password
+        - name: azure_resource_group_name
+          title: Resource Group
+          type: text
+        - name: azure_location
+          title: Resource Group Location
+    - name: k8s_target_gcp
+      title: GCP Settings
+      description: Azure Settings
+      when: '{{repl and (ConfigOptionEquals "k8s_target_value" "k8s_target_provision_k8s") (ConfigOptionEquals "provision_k8s" "provision_k8s_gcp")}}'
+      items:
+        - name: gcp_project
+          title: GCP Project Name
+          type: text
+        - name: gcp_region
+          title: GCP Region Name
+          type: text
+          default: us-central1
+        - name: gcp_zone
+          title: GCP Region Name
+          type: text
+          default: us-central1-b
+        - name: gcp_machine_type
+          title: GCP Machine type
+          type: text
+          default: n1-standard-1
+        - name: gcp_cluster_size
+          title: GCP cluster size
+          type: text
+          default: 3
+        - name: gcp_cluster_name
+          title: Cluster Name
+          type: text
+          default: my-cool-app
+        - name: gcp_account_json
+          title: GCP IAM Key (account.json)
+          type: textarea
+
+    - name: nginx
+      title: nginx settings
+      items:
+        - name: nginx_replicas
+          title: NGINX Replicas
+          type: text
+          default: 3
+        - name: nginx_memory
+          title: Nginx Memory
+          type: text
+          default: 100Mi
 
 lifecycle:
   v1:
@@ -49,9 +204,13 @@ lifecycle:
         contents: |
           # Prerequisites
 
-          - 3 web servers
-          - 2 SSL certs
-          - 1 Kubernetes cluster
+          To install `My Cool App`, you'll need to have either
+
+          - An existing Kubernetes cluster
+
+          or
+
+          - A service account / API credentials for your cloud provider. AWS, GCP, and Azure are supported
 
     # collect info according to the `config.v1` section, above
     - config:
@@ -61,33 +220,59 @@ lifecycle:
         requires: ["config"]
         root: .
     - message:
+        id: tf-intro
         contents: |
-          # Customize your Kubernetes configs
+          ## Provisioning Infrastructure
+          {{repl if (ConfigOptionEquals "k8s_target_value" "k8s_target_provision_k8s") }}
 
-          Base kubernetes assets have been generated for deploying `My Cool App` to your kubernetes cluster.
+          Next, we'll provision your cluster with terraform. Terraform sources have been output at `./tf`. The next step will use these to provision a Kubernetes cluster in your cloud provider.
 
-          The next step will walk you through adding any last-mile customizations to kubernetes configurations
-          before deploying them to your cluster.
+          If you'd prefer to apply these yourself, you can click `Skip` on the next page.
 
-          This will give you an opportunity to customize default configuration values,
-          and add any additional kubernetes settings in a way that will preserve your
-          customizations when pulling in upstream updates for `My Cool App`
+          {{repl end}}
+          {{repl if (ConfigOptionEquals "k8s_target_value" "k8s_target_existing")}}
 
-          We recommend reviewing the kubernetes resources and making any tweaks to the defaults,
-          especially to `config.yaml`.
+          You've elected not to provision any infrastructure, so the next few steps can be skipped!
 
-    - kustomizeIntro: {}
-    - kustomize:
-        requires: ["render"]
-        base: ./base
-        overlay: overlays/ship
-        dest: rendered.yaml
+          If you don't already have a Kubernetes cluster to deploy to, you can go back to the [config](/config) step to provide cloud provider credentials so this installer can provision a cluster.
+          {{repl end}}
+
+    - terraform:
+        path: tf/
+    - message:
+        id: kubectl-apply
+        contents: |
+          {{repl if (ConfigOptionEquals "k8s_target_value" "k8s_target_provision_k8s") }}
+
+          Now that your cluster is provisioned, we'll deploy resources with the generated kubeconfig at {{repl GoogleGKE (ConfigOption "gcp_cluster_name")}}
+
+          {{repl else}}
+          Nothing to see here
+          {{repl end}}
+    - kubectlApply:
+        path: base/
+        kubeconfig: '{{repl GoogleGKE (ConfigOption "gcp_cluster_name")}}'
     - message:
         id: outro
         contents: |
           ## You're all set!
 
+          {{repl if (and (ConfigOptionEquals "k8s_target_value" "k8s_target_provision_k8s") (ConfigOptionEquals "provision_k8s" "provision_k8s_gcp"))}}
+          Your cluster is live -- if you have `gcloud` configured, you can run
+
+              gcloud container clusters get-credentials {{repl ConfigOption "gcp_cluster_name"}} --zone {{repl ConfigOption "gcp_zone"}} --project {{repl ConfigOption "gcp_project"}}
+
+          to configure kubectl on this machine. Then run
+
+              kubectl get svc example-nginx
+
+          to get the external IP of the service. Note that it might take a minute or two for the IP address to be provisioned.
+
+          {{repl end}}
+
+          {{repl if (ConfigOptionEquals "k8s_target_value" "k8s_target_existing")}}
+
           If you have `kubectl` configured locally, you can deploy `My Cool App` by running
 
               kubectl apply -f rendered.yaml
-
+          {{repl end}}
