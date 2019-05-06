@@ -1,14 +1,14 @@
 assets:
   v1:
     - github:
-        repo: dexhorthy/replicated-starter-ship
+        repo: hhuuggoo/replicated-starter-ship
         path: /base
         dest: ./
         proxy: true
         # can be a commit SHA or branch reference, but master is best for quick iteration
         ref: master
     - github:
-        repo: dexhorthy/replicated-starter-ship
+        repo: hhuuggoo/replicated-starter-ship
         path: /scripts
         dest: ./
         # can be a commit SHA or branch reference, but master is best for quick iteration
@@ -38,12 +38,12 @@ assets:
         dest: tf/eks.tf
         # change to your app name
         cluster_name: "my-cool-app"
-        region: "us-west-2"
+        region: "us-east-2"
         created_vpc:
           vpc_cidr: "10.0.0.0/16"
           zones:
-            - us-west-2a
-            - us-west-2b
+            - us-east-2a
+            - us-east-2b
           public_subnets:
             - "10.0.1.0/24"
             - "10.0.2.0/24"
@@ -53,7 +53,7 @@ assets:
         autoscaling_groups:
           - name: alpha
             group_size: "3"
-            machine_type: t2.meduim
+            machine_type: t3.medium
 
     - azure_aks:
         when: '{{repl and (ConfigOptionEquals "k8s_target_value" "k8s_target_provision_k8s") (ConfigOptionEquals "provision_k8s" "provision_k8s_azure")}}'

@@ -14,7 +14,7 @@ SHIP_CHANNEL := Nightly
 VERSION_TAG := "0.1.0-dev-${USER}"
 
 # Replace this with your private or public ship repo in github
-REPO := replicatedhq/replicated-starter-ship
+REPO := hhuuggoo/replicated-starter-ship
 
 # App name will be displayed in the ship console
 APP_NAME := "My Cool App"
